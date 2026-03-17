@@ -441,7 +441,11 @@ const liveMantisEnv = {
   NODE_TLS_REJECT_UNAUTHORIZED: '0',
 };
 
-test('LIVE usersMe works against configured Mantis server', async () => {
+const shouldRunLiveTests = process.env.RUN_LIVE_MANTIS_TESTS === 'true';
+
+const liveTest = shouldRunLiveTests ? test : test.skip;
+
+liveTest('LIVE usersMe works against configured Mantis server', async () => {
   await withEnv(
     liveMantisEnv,
     async () => {
@@ -452,7 +456,7 @@ test('LIVE usersMe works against configured Mantis server', async () => {
   );
 });
 
-test('LIVE projectsMe works against configured Mantis server', async () => {
+liveTest('LIVE projectsMe works against configured Mantis server', async () => {
   await withEnv(
     liveMantisEnv,
     async () => {
