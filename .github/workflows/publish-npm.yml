@@ -37,6 +37,14 @@ jobs:
       - name: Verify package contents
         run: npm run pack:check
 
+      - name: Publish mode (NPM_TOKEN)
+        if: ${{ secrets.NPM_TOKEN != '' }}
+        run: echo "Using NPM_TOKEN publish path"
+
+      - name: Publish mode (trusted fallback)
+        if: ${{ secrets.NPM_TOKEN == '' }}
+        run: echo "Using trusted publishing fallback path"
+
       - name: Publish to npm (NPM_TOKEN)
         if: ${{ secrets.NPM_TOKEN != '' }}
         run: npm publish --access public --provenance
