@@ -1,4 +1,4 @@
-# Publishing `@andev4life/mantis-mcp-server` to npm
+# Publishing `@annguyen209/mantis-mcp-server` to npm
 
 This guide explains how to publish `MantisMcpServer` as an npm package and keep the release flow predictable.
 
@@ -6,7 +6,7 @@ This guide explains how to publish `MantisMcpServer` as an npm package and keep 
 
 The repo is already configured for npm packaging:
 
-- npm package name: `@andev4life/mantis-mcp-server`
+- npm package name: `@annguyen209/mantis-mcp-server`
 - CLI entrypoint: `mantis-mcp-server`
 - publishable package files are constrained through `package.json -> files`
 - `prepack` builds the bundle automatically
@@ -31,7 +31,7 @@ If you plan to publish publicly to npm, replace this with the license you actual
 
 The package name is currently:
 
-- `@andev4life/mantis-mcp-server`
+- `@annguyen209/mantis-mcp-server`
 
 Before publishing publicly, verify that the name is available on npm.
 
@@ -138,7 +138,7 @@ Example MCP config:
   "mcpServers": {
     "mantis-rest": {
       "command": "npx",
-      "args": ["-y", "@andev4life/mantis-mcp-server"],
+      "args": ["-y", "@annguyen209/mantis-mcp-server"],
       "env": {
         "MANTIS_BASE_URL": "https://mantis.example.com/api/rest",
         "MANTIS_USE_INDEX_PHP": "true",

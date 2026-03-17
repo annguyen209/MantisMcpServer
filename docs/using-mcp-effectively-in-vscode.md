@@ -40,7 +40,7 @@ If this server is published as an npm package, this is the best default setup fo
   "mcpServers": {
     "mantis-rest": {
       "command": "npx",
-      "args": ["-y", "@andev4life/mantis-mcp-server"],
+      "args": ["-y", "@annguyen209/mantis-mcp-server"],
       "env": {
         "MANTIS_BASE_URL": "https://mantis.example.com/api/rest",
         "MANTIS_USE_INDEX_PHP": "true",

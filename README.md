@@ -15,7 +15,7 @@ Example:
    "mcpServers": {
       "mantis-rest": {
          "command": "npx",
-         "args": ["-y", "@andev4life/mantis-mcp-server"],
+         "args": ["-y", "@annguyen209/mantis-mcp-server"],
          "env": {
             "MANTIS_BASE_URL": "https://mantis.example.com/api/rest",
             "MANTIS_USE_INDEX_PHP": "true",
@@ -71,9 +71,9 @@ If you are developing this server locally, you can still point VS Code at the bu
 
 This repo is set up so it can be delivered as an npm package.
 
-- npm package name: `@andev4life/mantis-mcp-server`
+- npm package name: `@annguyen209/mantis-mcp-server`
 - CLI entrypoint: `mantis-mcp-server`
-- package launcher for VS Code: `npx -y @andev4life/mantis-mcp-server`
+- package launcher for VS Code: `npx -y @annguyen209/mantis-mcp-server`
 - publish-time build: `npm run prepack`
 - package preview: `npm run pack:check`
 
