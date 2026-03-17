@@ -39,15 +39,42 @@ Before publishing publicly, verify that the name is available on npm.
 
 Make sure your npm account can publish the package.
 
-### 4. Configure npm trusted publishing (recommended)
+### 4. Configure npm publishing auth (choose one)
 
-For GitHub Actions publishing, prefer npm trusted publishing instead of storing `NPM_TOKEN`.
+You can publish from GitHub Actions using either:
+
+1. `NPM_TOKEN` (recommended for this repo until trusted publishing is fully accepted), or
+2. npm trusted publishing (OIDC).
+
+#### Option A: `NPM_TOKEN` with bypass 2FA enabled
+
+Create an npm token that can publish under your account policy.
+
+Important for this error class:
+
+- `E403 ... granular access token with bypass 2fa enabled is required`
+
+Token requirement:
+
+- `bypass_2fa: true`
+
+Validate with:
+
+- `npm token list --json`
+
+Then store the token as GitHub secret:
+
+- `NPM_TOKEN`
+
+#### Option B: npm trusted publishing (OIDC)
+
+For trusted publishing, add this GitHub repository/workflow as a trusted publisher in npm package settings.
 
 In npm package settings, add this GitHub repository/workflow as a trusted publisher for:
 
 - `@annguyen209/mantis-mcp-server`
 
-This repository workflow already requests:
+This workflow already requests:
 
 - `id-token: write`
 
@@ -114,7 +141,8 @@ The workflow then:
 - installs dependencies with `npm ci`
 - runs tests
 - builds the bundle
-- publishes to npm with trusted publishing + provenance
+- publishes to npm using `NPM_TOKEN` when present
+- otherwise falls back to trusted publishing
 
 ### Option 2: Manual publish from your machine
 
@@ -173,8 +201,8 @@ you are publishing with a token that does not satisfy npm's 2FA policy.
 
 Fix options:
 
-1. **Recommended:** use npm trusted publishing for GitHub Actions (no `NPM_TOKEN` needed).
-2. Use a publish-capable npm token that explicitly supports your account's 2FA policy (automation/granular token with bypass 2FA enabled).
+1. Create/use an npm token where `bypass_2fa: true` and store it in GitHub as `NPM_TOKEN`.
+2. Or complete npm trusted publishing setup for this repo/workflow.
 
 ### Publish fails with `E404 Not Found` for a new scoped package
 

@@ -37,5 +37,12 @@ jobs:
       - name: Verify package contents
         run: npm run pack:check
 
-      - name: Publish to npm (trusted publishing)
+      - name: Publish to npm (NPM_TOKEN)
+        if: ${{ secrets.NPM_TOKEN != '' }}
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm (trusted publishing fallback)
+        if: ${{ secrets.NPM_TOKEN == '' }}
         run: npm publish --access public --provenance
