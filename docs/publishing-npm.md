@@ -176,6 +176,27 @@ Fix options:
 1. **Recommended:** use npm trusted publishing for GitHub Actions (no `NPM_TOKEN` needed).
 2. Use a publish-capable npm token that explicitly supports your account's 2FA policy (automation/granular token with bypass 2FA enabled).
 
+### Publish fails with `E404 Not Found` for a new scoped package
+
+If CI shows:
+
+- `E404 Not Found - PUT https://registry.npmjs.org/@annguyen209%2fmantis-mcp-server`
+
+for a brand new package, this usually means npm cannot authorize this workflow to create/publish that package yet.
+
+Most common causes:
+
+- trusted publisher is not fully configured for this repo/workflow on npm
+- package/scope ownership is not recognized by the publishing identity
+
+Practical bootstrap fix:
+
+1. Publish the package once manually from your machine using your `annguyen209` npm account (`npm publish --access public`).
+2. In npm package settings, configure trusted publishing for this GitHub repository/workflow.
+3. Bump version and publish again via tag from GitHub Actions.
+
+After bootstrap, tag-based trusted publishing should work consistently.
+
 ### Publish fails because the version already exists
 
 npm does not allow re-publishing the same version.
