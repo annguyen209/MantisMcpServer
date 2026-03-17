@@ -79,30 +79,6 @@ This repo is set up so it can be delivered as an npm package.
 
 The published package is designed to include the bundled runtime under `dist/` and a small CLI shim under `bin/`.
 
-## Publishing
-
-This repo now includes a publish workflow and a release guide.
-
-- Publish guide: [`docs/publishing-npm.md`](docs/publishing-npm.md)
-- GitHub Actions workflow: [`.github/workflows/publish-npm.yml`](.github/workflows/publish-npm.yml)
-
-### Publish prerequisites
-
-- choose the package license you intend to publish under
-- make sure the npm package name is available
-- add `NPM_TOKEN` as a GitHub Actions repository secret
-- bump the version in `package.json`
-
-### Release trigger
-
-The publish workflow is designed to run when you push a tag like:
-
-- `v1.0.1`
-- `v1.1.0`
-- `v2.0.0`
-
-It can also be run manually from GitHub Actions.
-
 ## Use in VS Code
 
 For a practical guide to configuring this server in VS Code and using it effectively from chat, see:
