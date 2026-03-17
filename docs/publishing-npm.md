@@ -39,13 +39,19 @@ Before publishing publicly, verify that the name is available on npm.
 
 Make sure your npm account can publish the package.
 
-### 4. Add the GitHub secret
+### 4. Configure npm trusted publishing (recommended)
 
-Add this repository secret in GitHub:
+For GitHub Actions publishing, prefer npm trusted publishing instead of storing `NPM_TOKEN`.
 
-- `NPM_TOKEN`
+In npm package settings, add this GitHub repository/workflow as a trusted publisher for:
 
-This token is used by the publish workflow.
+- `@annguyen209/mantis-mcp-server`
+
+This repository workflow already requests:
+
+- `id-token: write`
+
+which is required for trusted publishing with provenance.
 
 ## Local release checklist
 
@@ -108,7 +114,7 @@ The workflow then:
 - installs dependencies with `npm ci`
 - runs tests
 - builds the bundle
-- publishes to npm using `NPM_TOKEN`
+- publishes to npm with trusted publishing + provenance
 
 ### Option 2: Manual publish from your machine
 
@@ -157,9 +163,18 @@ This still uses `stdio`; npm just changes the delivery mechanism.
 
 Check:
 
-- `NPM_TOKEN` exists in GitHub secrets
-- the token has publish permission
 - the npm account has access to the package name/scope
+
+If you see this specific error:
+
+- `E403 ... Two-factor authentication or granular access token with bypass 2fa enabled is required`
+
+you are publishing with a token that does not satisfy npm's 2FA policy.
+
+Fix options:
+
+1. **Recommended:** use npm trusted publishing for GitHub Actions (no `NPM_TOKEN` needed).
+2. Use a publish-capable npm token that explicitly supports your account's 2FA policy (automation/granular token with bypass 2FA enabled).
 
 ### Publish fails because the version already exists
 

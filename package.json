@@ -1,6 +1,6 @@
 {
   "name": "@annguyen209/mantis-mcp-server",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Standalone MCP server for MantisBT REST API endpoints",
   "license": "UNLICENSED",
   "type": "module",

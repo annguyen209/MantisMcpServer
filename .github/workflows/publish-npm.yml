@@ -37,26 +37,5 @@ jobs:
       - name: Verify package contents
         run: npm run pack:check
 
-      - name: Validate npm auth token
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::NPM_TOKEN secret is missing or empty. Add it under Repository Settings -> Secrets and variables -> Actions."
-            exit 1
-          fi
-
-      - name: Configure npm authentication
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          cat > ~/.npmrc <<EOF
-          //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
-          always-auth=true
-          EOF
-          npm whoami
-
-      - name: Publish to npm
+      - name: Publish to npm (trusted publishing)
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
