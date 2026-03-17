@@ -1,12 +1,44 @@
 {
-  "name": "mantis-mcp-server",
+  "name": "@andev4life/mantis-mcp-server",
   "version": "1.0.0",
-  "private": true,
   "description": "Standalone MCP server for MantisBT REST API endpoints",
+  "license": "UNLICENSED",
   "type": "module",
   "main": "dist/server.bundle.js",
+  "bin": {
+    "mantis-mcp-server": "bin/mantis-mcp-server.js"
+  },
+  "exports": {
+    ".": "./dist/server.bundle.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "docs"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "mantis",
+    "mantisbt",
+    "vscode",
+    "model-context-protocol"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/annguyen209/MantisMcpServer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/annguyen209/MantisMcpServer/issues"
+  },
+  "homepage": "https://github.com/annguyen209/MantisMcpServer#readme",
   "scripts": {
     "build": "esbuild src/server.js --bundle --platform=node --format=esm --target=node18 --external:dotenv --outfile=dist/server.bundle.js",
+    "prepack": "npm run build",
+    "pack:check": "npm pack --dry-run",
     "start": "node dist/server.bundle.js",
     "start:src": "node src/server.js",
     "test": "node --test"

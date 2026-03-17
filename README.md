@@ -2,6 +2,36 @@
 
 Standalone MCP server for MantisBT REST API endpoints.
 
+## Install options
+
+### Recommended: run from npm with `npx`
+
+Once published, the easiest VS Code setup is to let your MCP client launch the package with `npx`.
+
+Example:
+
+```json
+{
+   "mcpServers": {
+      "mantis-rest": {
+         "command": "npx",
+         "args": ["-y", "@andev4life/mantis-mcp-server"],
+         "env": {
+            "MANTIS_BASE_URL": "https://mantis.example.com/api/rest",
+            "MANTIS_USE_INDEX_PHP": "true",
+            "MANTIS_API_TOKEN": "YOUR_REAL_TOKEN_HERE"
+         }
+      }
+   }
+}
+```
+
+VS Code still talks to the MCP server over `stdio`; `npx` only changes how the process is started.
+
+### Local repo workflow
+
+If you are developing this server locally, you can still point VS Code at the bundled file in this repo.
+
 ## Wrapped endpoints
 
 - `GET /users/me` -> `mantis_users_me`
@@ -21,6 +51,8 @@ Standalone MCP server for MantisBT REST API endpoints.
 
 ## Setup
 
+### Local development setup
+
 1. Install dependencies
    - `npm install`
 2. Build bundled runtime (recommended for distribution)
@@ -35,6 +67,55 @@ Standalone MCP server for MantisBT REST API endpoints.
    - point it to `dist/server.bundle.js` for bundled runtime, or `src/server.js` for source mode
    - example command: `node D:/php/MantisMcpServer/dist/server.bundle.js`
 
+## npm packaging notes
+
+This repo is set up so it can be delivered as an npm package.
+
+- npm package name: `@andev4life/mantis-mcp-server`
+- CLI entrypoint: `mantis-mcp-server`
+- package launcher for VS Code: `npx -y @andev4life/mantis-mcp-server`
+- publish-time build: `npm run prepack`
+- package preview: `npm run pack:check`
+
+The published package is designed to include the bundled runtime under `dist/` and a small CLI shim under `bin/`.
+
+## Publishing
+
+This repo now includes a publish workflow and a release guide.
+
+- Publish guide: [`docs/publishing-npm.md`](docs/publishing-npm.md)
+- GitHub Actions workflow: [`.github/workflows/publish-npm.yml`](.github/workflows/publish-npm.yml)
+
+### Publish prerequisites
+
+- choose the package license you intend to publish under
+- make sure the npm package name is available
+- add `NPM_TOKEN` as a GitHub Actions repository secret
+- bump the version in `package.json`
+
+### Release trigger
+
+The publish workflow is designed to run when you push a tag like:
+
+- `v1.0.1`
+- `v1.1.0`
+- `v2.0.0`
+
+It can also be run manually from GitHub Actions.
+
+## Use in VS Code
+
+For a practical guide to configuring this server in VS Code and using it effectively from chat, see:
+
+- [`docs/using-mcp-effectively-in-vscode.md`](docs/using-mcp-effectively-in-vscode.md)
+
+The guide covers:
+
+- how to wire the server into your MCP client settings
+- how to phrase requests so the assistant uses the right Mantis tools
+- timesheet and issue workflow examples
+- troubleshooting tips for auth, IIS, and tool visibility
+
 ## API token
 
 The server reads the Mantis API token from `MANTIS_API_TOKEN`.
@@ -44,14 +125,14 @@ The server reads the Mantis API token from `MANTIS_API_TOKEN`.
 Example `D:/php/MantisMcpServer/.env`:
 
 ```env
-MANTIS_BASE_URL=https://eil.ewarenow.com/api/rest
+MANTIS_BASE_URL=https://mantis.example.com/api/rest
 MANTIS_USE_INDEX_PHP=true
 MANTIS_API_TOKEN=YOUR_REAL_TOKEN_HERE
 ```
 
 ### Option 2: MCP client config
 
-Example MCP client configuration:
+Example MCP client configuration for a local repo checkout:
 
 ```json
 {
@@ -60,7 +141,7 @@ Example MCP client configuration:
          "command": "node",
          "args": ["D:/php/MantisMcpServer/dist/server.bundle.js"],
          "env": {
-            "MANTIS_BASE_URL": "https://eil.ewarenow.com/api/rest",
+            "MANTIS_BASE_URL": "https://mantis.example.com/api/rest",
             "MANTIS_USE_INDEX_PHP": "true",
             "MANTIS_API_TOKEN": "YOUR_REAL_TOKEN_HERE"
          }

@@ -36,7 +36,7 @@ export function getEnabledToolNames() {
 }
 
 export function getConfig() {
-  const baseUrl = trimTrailingSlash(process.env.MANTIS_BASE_URL || 'https://localhost:4430/api/rest');
+  const baseUrl = trimTrailingSlash(process.env.MANTIS_BASE_URL || 'https://mantis.example.com/api/rest');
   const webBase = deriveWebBase(baseUrl);
   const apiToken = process.env.MANTIS_API_TOKEN || '';
   const useIndexPhp = asBool(process.env.MANTIS_USE_INDEX_PHP, true);
