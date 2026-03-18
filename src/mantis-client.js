@@ -312,6 +312,12 @@ export async function issuesCreate({
     );
     if (match) {
       fields.category = { id: match.id };
+    } else {
+      throw new Error(
+        `Unknown category "${fields.category.name}" for project ${project_id}. Available: ${
+          project.categories.map((c) => c.name).join(', ') || '<none>'
+        }`
+      );
     }
   }
 
@@ -328,6 +334,8 @@ export async function issuesCreate({
   }
 
   // Map known custom field names to the custom_fields array (Mantis REST requires IDs)
+  // We keep an array during processing so we can push mapped values, but remove it
+  // later when it's empty to reduce request noise.
   fields.custom_fields = Array.isArray(fields.custom_fields) ? [...fields.custom_fields] : [];
 
   // Use project metadata to map custom field names to IDs when possible.
@@ -353,13 +361,29 @@ export async function issuesCreate({
       customFieldNameToId.get(String(expectedFieldName).toLowerCase());
 
     if (!fieldId) {
-      continue;
+      throw new Error(
+        `Missing custom field "${expectedFieldName}" (mapped to key ${fieldName}) in project ${project_id} metadata.`
+      );
     }
 
     const exists = fields.custom_fields.some((cf) => cf.id === fieldId);
     if (!exists) {
-      fields.custom_fields.push({ id: fieldId, value });
+      fields.custom_fields.push({
+        field: { id: fieldId, name: expectedFieldName },
+        value,
+      });
     }
+  }
+
+  // Ensure we only send these mapped values via custom_fields (Mantis REST expects
+  // custom field values to be provided as custom_fields, not as top-level keys).
+  delete fields.actual_effort;
+  delete fields.estimated_effort;
+  delete fields.expected_complete_date;
+
+  // Avoid sending an empty custom_fields array if we didn't add any mappings.
+  if (Array.isArray(fields.custom_fields) && fields.custom_fields.length === 0) {
+    delete fields.custom_fields;
   }
 
   const body = {

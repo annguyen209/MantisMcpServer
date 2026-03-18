@@ -21115,6 +21115,10 @@ async function issuesCreate({
     );
     if (match) {
       fields.category = { id: match.id };
+    } else {
+      throw new Error(
+        `Unknown category "${fields.category.name}" for project ${project_id}. Available: ${project.categories.map((c) => c.name).join(", ") || "<none>"}`
+      );
     }
   }
   if (actual_effort !== void 0 && fields.actual_effort === void 0) {
@@ -21141,12 +21145,23 @@ async function issuesCreate({
     const expectedFieldName = CUSTOM_FIELD_NAME_BY_KEY[fieldName];
     const fieldId = customFieldNameToId.get(fieldName) || customFieldNameToId.get(String(expectedFieldName).toLowerCase());
     if (!fieldId) {
-      continue;
+      throw new Error(
+        `Missing custom field "${expectedFieldName}" (mapped to key ${fieldName}) in project ${project_id} metadata.`
+      );
     }
     const exists = fields.custom_fields.some((cf) => cf.id === fieldId);
     if (!exists) {
-      fields.custom_fields.push({ id: fieldId, value });
+      fields.custom_fields.push({
+        field: { id: fieldId, name: expectedFieldName },
+        value
+      });
     }
+  }
+  delete fields.actual_effort;
+  delete fields.estimated_effort;
+  delete fields.expected_complete_date;
+  if (Array.isArray(fields.custom_fields) && fields.custom_fields.length === 0) {
+    delete fields.custom_fields;
   }
   const body = {
     summary,
@@ -21287,41 +21302,34 @@ function getTomorrowDateString2() {
   return `${yyyy}-${mm}-${dd}`;
 }
 function normalizeIssueCreateArgs(args = {}) {
-  const additionalFields = {
-    ...args.additional_fields || {}
+  const normalized = {
+    ...args
   };
-  if (args.category === void 0 && additionalFields.category === void 0) {
-    additionalFields.category = "Tasks";
+  if (normalized.category === void 0) {
+    normalized.category = "Tasks";
   }
-  if (args.actual_effort === void 0 && additionalFields.actual_effort === void 0) {
-    additionalFields.actual_effort = 4;
+  if (normalized.actual_effort === void 0) {
+    normalized.actual_effort = 4;
   }
-  if (args.estimated_effort === void 0 && additionalFields.estimated_effort === void 0) {
-    additionalFields.estimated_effort = 4;
+  if (normalized.estimated_effort === void 0) {
+    normalized.estimated_effort = 4;
   }
-  if (args.expected_complete_date === void 0 && additionalFields.expected_complete_date === void 0) {
-    additionalFields.expected_complete_date = getTomorrowDateString2();
+  if (normalized.expected_complete_date === void 0) {
+    normalized.expected_complete_date = getTomorrowDateString2();
   }
-  if (args.category !== void 0 && additionalFields.category === void 0) {
-    additionalFields.category = args.category;
-  }
-  if (args.actual_effort !== void 0 && additionalFields.actual_effort === void 0) {
-    additionalFields.actual_effort = args.actual_effort;
-  }
-  if (args.estimated_effort !== void 0 && additionalFields.estimated_effort === void 0) {
-    additionalFields.estimated_effort = args.estimated_effort;
-  }
-  if (args.expected_complete_date !== void 0 && additionalFields.expected_complete_date === void 0) {
-    additionalFields.expected_complete_date = args.expected_complete_date;
-  }
-  if (typeof additionalFields.category === "string") {
-    additionalFields.category = { name: additionalFields.category };
-  }
-  additionalFields.custom_fields = Array.isArray(additionalFields.custom_fields) ? [...additionalFields.custom_fields] : [];
-  return {
-    ...args,
-    additional_fields: additionalFields
+  const normalizeNumber = (value) => {
+    if (typeof value === "number") return value;
+    if (typeof value === "string" && value.trim() !== "" && !Number.isNaN(Number(value))) {
+      return Number(value);
+    }
+    return value;
   };
+  normalized.actual_effort = normalizeNumber(normalized.actual_effort);
+  normalized.estimated_effort = normalizeNumber(normalized.estimated_effort);
+  if (typeof normalized.category === "string") {
+    normalized.category = { name: normalized.category };
+  }
+  return normalized;
 }
 var TIMESHEET_ADD_INPUT_SCHEMA = {
   type: "object",
@@ -21485,22 +21493,21 @@ var allTools = [
         summary: { type: "string" },
         description: { type: "string" },
         project_id: { type: "integer" },
-        category: { type: "string", description: "Issue category (e.g. Tasks, Bugs, New Features, Performance, Warranty)." },
+        category: {
+          type: "string",
+          description: "Issue category (e.g. Tasks, Bugs, New Features, Performance, Warranty). Will be resolved to a category ID for Mantis."
+        },
         actual_effort: {
           type: ["number", "string"],
-          description: "Actual effort spent (custom field)."
+          description: "Actual effort spent. Accepts numbers or numeric strings; will be mapped to the corresponding custom field ID."
         },
         estimated_effort: {
           type: ["number", "string"],
-          description: "Estimated effort (custom field)."
+          description: "Estimated effort. Accepts numbers or numeric strings; will be mapped to the corresponding custom field ID."
         },
         expected_complete_date: {
           type: "string",
-          description: "Expected completion date (YYYY-MM-DD) (custom field)."
-        },
-        additional_fields: {
-          type: "object",
-          description: "Optional extra Mantis issue fields, e.g. category, priority, handler, custom field values (e.g. actual/estimated effort)."
+          description: "Expected completion date (YYYY-MM-DD). Will be mapped to the corresponding custom field ID."
         }
       },
       required: [
@@ -21733,8 +21740,7 @@ async function handleToolCall(request2, contextOrDeps, injectedDeps) {
             category: normalized.category,
             actual_effort: normalized.actual_effort,
             estimated_effort: normalized.estimated_effort,
-            expected_complete_date: normalized.expected_complete_date,
-            additional_fields: normalized.additional_fields
+            expected_complete_date: normalized.expected_complete_date
           })
         );
       }

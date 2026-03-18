@@ -254,19 +254,45 @@ test('mantis_issues_create routes payload arguments', async () => {
   assert.equal(result.isError, false);
   const expectedArgs = {
     ...args,
-    additional_fields: {
-      category: { name: 'Bugs' },
-      actual_effort: 0,
-      estimated_effort: 4,
-      expected_complete_date: (() => {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(
-          tomorrow.getDate()
-        ).padStart(2, '0')}`;
-      })(),
-      custom_fields: [],
-    },
+    category: { name: 'Bugs' },
+    actual_effort: 0,
+    estimated_effort: 4,
+    expected_complete_date: (() => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(
+        tomorrow.getDate()
+      ).padStart(2, '0')}`;
+    })(),
+  };
+
+  assert.deepEqual(parseTextResult(result), {
+    endpoint: 'issues_create',
+    payload: expectedArgs,
+  });
+});
+
+test('mantis_issues_create preserves provided expected_complete_date and accepts numeric strings', async () => {
+  const args = {
+    summary: 'MCP Server — Query Feasibility Study & Implementation Proposal',
+    description:
+      'Parent: 8669\n\nMCP Server feasibility study for exposing EQQLinux query endpoints. Full document path: d:\\Project\\EQQLinux\\docs\\03_analysis\\mcp-server-query-feasibility-2026-03-16.md\n\nPlease link to parent ticket 8669.',
+    project_id: 37,
+    category: 'Tasks',
+    actual_effort: '4',
+    estimated_effort: '8',
+    expected_complete_date: '2026-04-01',
+  };
+
+  const result = await handleToolCall(makeRequest('mantis_issues_create', args), createDeps());
+  assert.equal(result.isError, false);
+
+  const expectedArgs = {
+    ...args,
+    category: { name: 'Tasks' },
+    actual_effort: 4,
+    estimated_effort: 8,
+    expected_complete_date: '2026-04-01',
   };
 
   assert.deepEqual(parseTextResult(result), {

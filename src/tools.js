@@ -125,57 +125,44 @@ function getTomorrowDateString() {
 // The underlying client will fetch project metadata and resolve IDs dynamically.
 
 function normalizeIssueCreateArgs(args = {}) {
-  const additionalFields = {
-    ...(args.additional_fields || {}),
+  const normalized = {
+    ...args,
   };
 
   // Defaults when not provided
-  if (args.category === undefined && additionalFields.category === undefined) {
-    additionalFields.category = 'Tasks';
+  if (normalized.category === undefined) {
+    normalized.category = 'Tasks';
   }
 
-  if (args.actual_effort === undefined && additionalFields.actual_effort === undefined) {
-    additionalFields.actual_effort = 4;
+  if (normalized.actual_effort === undefined) {
+    normalized.actual_effort = 4;
   }
 
-  if (args.estimated_effort === undefined && additionalFields.estimated_effort === undefined) {
-    additionalFields.estimated_effort = 4;
+  if (normalized.estimated_effort === undefined) {
+    normalized.estimated_effort = 4;
   }
 
-  if (args.expected_complete_date === undefined && additionalFields.expected_complete_date === undefined) {
-    additionalFields.expected_complete_date = getTomorrowDateString();
+  if (normalized.expected_complete_date === undefined) {
+    normalized.expected_complete_date = getTomorrowDateString();
   }
 
-  if (args.category !== undefined && additionalFields.category === undefined) {
-    additionalFields.category = args.category;
-  }
-
-  if (args.actual_effort !== undefined && additionalFields.actual_effort === undefined) {
-    additionalFields.actual_effort = args.actual_effort;
-  }
-
-  if (args.estimated_effort !== undefined && additionalFields.estimated_effort === undefined) {
-    additionalFields.estimated_effort = args.estimated_effort;
-  }
-
-  if (args.expected_complete_date !== undefined && additionalFields.expected_complete_date === undefined) {
-    additionalFields.expected_complete_date = args.expected_complete_date;
-  }
-
-  if (typeof additionalFields.category === 'string') {
-    additionalFields.category = { name: additionalFields.category };
-  }
-
-  // Do not attempt to resolve custom field IDs here; the client will resolve them
-  // using project metadata (custom_fields array) when creating an issue.
-  additionalFields.custom_fields = Array.isArray(additionalFields.custom_fields)
-    ? [...additionalFields.custom_fields]
-    : [];
-
-  return {
-    ...args,
-    additional_fields: additionalFields,
+  // Normalize numeric inputs: allow numbers or numeric strings.
+  const normalizeNumber = (value) => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) {
+      return Number(value);
+    }
+    return value;
   };
+
+  normalized.actual_effort = normalizeNumber(normalized.actual_effort);
+  normalized.estimated_effort = normalizeNumber(normalized.estimated_effort);
+
+  if (typeof normalized.category === 'string') {
+    normalized.category = { name: normalized.category };
+  }
+
+  return normalized;
 }
 
 const TIMESHEET_ADD_INPUT_SCHEMA = {
@@ -341,22 +328,21 @@ export const allTools = [
         summary: { type: 'string' },
         description: { type: 'string' },
         project_id: { type: 'integer' },
-        category: { type: 'string', description: 'Issue category (e.g. Tasks, Bugs, New Features, Performance, Warranty).' },
+        category: {
+          type: 'string',
+          description: 'Issue category (e.g. Tasks, Bugs, New Features, Performance, Warranty). Will be resolved to a category ID for Mantis.',
+        },
         actual_effort: {
           type: ['number', 'string'],
-          description: 'Actual effort spent (custom field).',
+          description: 'Actual effort spent. Accepts numbers or numeric strings; will be mapped to the corresponding custom field ID.',
         },
         estimated_effort: {
           type: ['number', 'string'],
-          description: 'Estimated effort (custom field).',
+          description: 'Estimated effort. Accepts numbers or numeric strings; will be mapped to the corresponding custom field ID.',
         },
         expected_complete_date: {
           type: 'string',
-          description: 'Expected completion date (YYYY-MM-DD) (custom field).',
-        },
-        additional_fields: {
-          type: 'object',
-          description: 'Optional extra Mantis issue fields, e.g. category, priority, handler, custom field values (e.g. actual/estimated effort).',
+          description: 'Expected completion date (YYYY-MM-DD). Will be mapped to the corresponding custom field ID.',
         },
       },
       required: [
@@ -613,7 +599,6 @@ export async function handleToolCall(request, contextOrDeps, injectedDeps) {
             actual_effort: normalized.actual_effort,
             estimated_effort: normalized.estimated_effort,
             expected_complete_date: normalized.expected_complete_date,
-            additional_fields: normalized.additional_fields,
           })
         );
       }
