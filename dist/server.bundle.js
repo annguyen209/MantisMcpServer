@@ -20861,6 +20861,17 @@ function getConfig() {
 }
 
 // src/mantis-client.js
+var CUSTOM_FIELD_ID_BY_NAME = {
+  actual_effort: 1,
+  components: 2,
+  estimated_effort: 3,
+  expected_complete_date: 4,
+  milestone: 5,
+  release_sprint: 6,
+  actual_status: 7,
+  percent_completed: 8,
+  work_remaining: 9
+};
 function buildQuery(params = {}) {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -21035,12 +21046,72 @@ async function timesheetReportQuery({
     }
   });
 }
-async function issuesCreate({ summary, description, project_id, additional_fields }) {
+function getTomorrowDateString() {
+  const tomorrow = /* @__PURE__ */ new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const yyyy = tomorrow.getFullYear();
+  const mm = String(tomorrow.getMonth() + 1).padStart(2, "0");
+  const dd = String(tomorrow.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+async function issuesCreate({
+  summary,
+  description,
+  project_id,
+  additional_fields,
+  category,
+  actual_effort,
+  estimated_effort,
+  expected_complete_date
+}) {
+  const args = {
+    summary,
+    description,
+    project_id,
+    additional_fields,
+    category,
+    actual_effort,
+    estimated_effort,
+    expected_complete_date
+  };
+  const fields = {
+    ...additional_fields || {}
+  };
+  if (category === void 0 && fields.category === void 0) {
+    category = "Tasks";
+  }
+  if (estimated_effort === void 0 && fields.estimated_effort === void 0) {
+    estimated_effort = 4;
+  }
+  if (expected_complete_date === void 0 && fields.expected_complete_date === void 0) {
+    expected_complete_date = getTomorrowDateString();
+  }
+  if (category !== void 0 && fields.category === void 0) {
+    fields.category = typeof category === "string" ? { name: category } : category;
+  }
+  if (actual_effort !== void 0 && fields.actual_effort === void 0) {
+    fields.actual_effort = actual_effort;
+  }
+  if (estimated_effort !== void 0 && fields.estimated_effort === void 0) {
+    fields.estimated_effort = estimated_effort;
+  }
+  if (expected_complete_date !== void 0 && fields.expected_complete_date === void 0) {
+    fields.expected_complete_date = expected_complete_date;
+  }
+  fields.custom_fields = Array.isArray(fields.custom_fields) ? [...fields.custom_fields] : [];
+  for (const [fieldName, fieldId] of Object.entries(CUSTOM_FIELD_ID_BY_NAME)) {
+    const value = (fieldName in args ? args[fieldName] : void 0) ?? fields[fieldName];
+    if (value === void 0) continue;
+    const exists = fields.custom_fields.some((cf) => cf.id === fieldId);
+    if (!exists) {
+      fields.custom_fields.push({ id: fieldId, value });
+    }
+  }
   const body = {
     summary,
     description,
     project: { id: project_id },
-    ...additional_fields || {}
+    ...fields
   };
   return request("/issues", { method: "POST", body });
 }
@@ -21051,6 +21122,25 @@ async function issuesUpdate({ id, summary, description, additional_fields }) {
     ...additional_fields || {}
   };
   return request(`/issues/${id}`, { method: "PATCH", body });
+}
+async function issueNoteAdd({ issue_id, payload }) {
+  return request(`/issues/${issue_id}/notes`, { method: "POST", body: payload });
+}
+async function issueNoteDelete({ issue_id, note_id }) {
+  return request(`/issues/${issue_id}/notes/${note_id}`, { method: "DELETE" });
+}
+async function issueNoteGet({ issue_id, note_id }) {
+  const issue2 = await issuesGet(issue_id);
+  const note = issue2?.data?.issues?.[0]?.notes?.find((n) => n.id === note_id);
+  return {
+    ...issue2,
+    note
+  };
+}
+async function issueNotesList({ issue_id }) {
+  const issue2 = await issuesGet(issue_id);
+  const notes = issue2?.data?.issues?.[0]?.notes || [];
+  return { ...issue2, notes };
 }
 async function issuesDelete(id) {
   return request("/issues", { method: "DELETE", query: { id } });
@@ -21072,7 +21162,7 @@ async function langGet(strings) {
   });
 }
 
-// src/server.js
+// src/tools.js
 function toTextResult(payload, isError = false) {
   return {
     content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
@@ -21141,6 +21231,67 @@ function normalizeTimesheetArgs(args = {}) {
       TIMESHEET_SHIFT_OPTIONS,
       "shift_time"
     );
+  }
+  return {
+    ...args,
+    additional_fields: additionalFields
+  };
+}
+function getTomorrowDateString2() {
+  const tomorrow = /* @__PURE__ */ new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const yyyy = tomorrow.getFullYear();
+  const mm = String(tomorrow.getMonth() + 1).padStart(2, "0");
+  const dd = String(tomorrow.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+var CUSTOM_FIELD_ID_BY_NAME2 = {
+  actual_effort: 1,
+  components: 2,
+  estimated_effort: 3,
+  expected_complete_date: 4,
+  milestone: 5,
+  release_sprint: 6,
+  actual_status: 7,
+  percent_completed: 8,
+  work_remaining: 9
+};
+function normalizeIssueCreateArgs(args = {}) {
+  const additionalFields = {
+    ...args.additional_fields || {}
+  };
+  if (args.category === void 0 && additionalFields.category === void 0) {
+    additionalFields.category = "Tasks";
+  }
+  if (args.estimated_effort === void 0 && additionalFields.estimated_effort === void 0) {
+    additionalFields.estimated_effort = 4;
+  }
+  if (args.expected_complete_date === void 0 && additionalFields.expected_complete_date === void 0) {
+    additionalFields.expected_complete_date = getTomorrowDateString2();
+  }
+  if (args.category !== void 0 && additionalFields.category === void 0) {
+    additionalFields.category = args.category;
+  }
+  if (args.actual_effort !== void 0 && additionalFields.actual_effort === void 0) {
+    additionalFields.actual_effort = args.actual_effort;
+  }
+  if (args.estimated_effort !== void 0 && additionalFields.estimated_effort === void 0) {
+    additionalFields.estimated_effort = args.estimated_effort;
+  }
+  if (args.expected_complete_date !== void 0 && additionalFields.expected_complete_date === void 0) {
+    additionalFields.expected_complete_date = args.expected_complete_date;
+  }
+  if (typeof additionalFields.category === "string") {
+    additionalFields.category = { name: additionalFields.category };
+  }
+  additionalFields.custom_fields = Array.isArray(additionalFields.custom_fields) ? [...additionalFields.custom_fields] : [];
+  for (const [fieldName, fieldId] of Object.entries(CUSTOM_FIELD_ID_BY_NAME2)) {
+    const value = args[fieldName] !== void 0 ? args[fieldName] : additionalFields[fieldName];
+    if (value === void 0) continue;
+    const exists = additionalFields.custom_fields.some((cf) => cf.id === fieldId);
+    if (!exists) {
+      additionalFields.custom_fields.push({ id: fieldId, value });
+    }
   }
   return {
     ...args,
@@ -21285,12 +21436,87 @@ var allTools = [
         summary: { type: "string" },
         description: { type: "string" },
         project_id: { type: "integer" },
+        category: { type: "string", description: "Issue category (e.g. Tasks)." },
+        actual_effort: {
+          type: ["number", "string"],
+          description: "Actual effort spent (custom field)."
+        },
+        estimated_effort: {
+          type: ["number", "string"],
+          description: "Estimated effort (custom field)."
+        },
+        expected_complete_date: {
+          type: "string",
+          description: "Expected completion date (YYYY-MM-DD) (custom field)."
+        },
         additional_fields: {
           type: "object",
-          description: "Optional extra Mantis issue fields, e.g. category, priority, handler."
+          description: "Optional extra Mantis issue fields, e.g. category, priority, handler, custom field values (e.g. actual/estimated effort)."
         }
       },
-      required: ["summary", "description", "project_id"],
+      required: [
+        "summary",
+        "description",
+        "project_id",
+        "category",
+        "actual_effort",
+        "estimated_effort",
+        "expected_complete_date"
+      ],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "mantis_issue_note_add",
+    description: "Add a note to an issue.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        issue_id: { type: "integer" },
+        payload: {
+          type: "object",
+          description: 'Note payload to forward to Mantis REST API. Example: { text: "note", view_state: { name: "private" } }'
+        }
+      },
+      required: ["issue_id", "payload"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "mantis_issue_note_delete",
+    description: "Delete a note from an issue.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        issue_id: { type: "integer" },
+        note_id: { type: "integer" }
+      },
+      required: ["issue_id", "note_id"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "mantis_issue_notes_list",
+    description: "List notes for an issue.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        issue_id: { type: "integer" }
+      },
+      required: ["issue_id"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "mantis_issue_note_get",
+    description: "Get a single note from an issue.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        issue_id: { type: "integer" },
+        note_id: { type: "integer" }
+      },
+      required: ["issue_id", "note_id"],
       additionalProperties: false
     }
   },
@@ -21372,6 +21598,10 @@ var defaultDeps = {
   issuesGet,
   issuesSearch,
   issuesUpdate,
+  issueNoteAdd,
+  issueNoteDelete,
+  issueNoteGet,
+  issueNotesList,
   langGet,
   projectsMe,
   timesheetReportQuery,
@@ -21439,13 +21669,42 @@ async function handleToolCall(request2, contextOrDeps, injectedDeps) {
             project_id: args.project_id
           })
         );
-      case "mantis_issues_create":
+      case "mantis_issues_create": {
+        const normalized = normalizeIssueCreateArgs(args);
         return toTextResult(
           await deps.issuesCreate({
-            summary: args.summary,
-            description: args.description,
-            project_id: args.project_id,
-            additional_fields: args.additional_fields
+            summary: normalized.summary,
+            description: normalized.description,
+            project_id: normalized.project_id,
+            additional_fields: normalized.additional_fields
+          })
+        );
+      }
+      case "mantis_issue_note_add":
+        return toTextResult(
+          await deps.issueNoteAdd({
+            issue_id: args.issue_id,
+            payload: args.payload
+          })
+        );
+      case "mantis_issue_note_delete":
+        return toTextResult(
+          await deps.issueNoteDelete({
+            issue_id: args.issue_id,
+            note_id: args.note_id
+          })
+        );
+      case "mantis_issue_notes_list":
+        return toTextResult(
+          await deps.issueNotesList({
+            issue_id: args.issue_id
+          })
+        );
+      case "mantis_issue_note_get":
+        return toTextResult(
+          await deps.issueNoteGet({
+            issue_id: args.issue_id,
+            note_id: args.note_id
           })
         );
       case "mantis_issues_update":
@@ -21484,6 +21743,8 @@ async function handleToolCall(request2, contextOrDeps, injectedDeps) {
     );
   }
 }
+
+// src/server.js
 function createMcpServer() {
   const server = new Server(
     {
@@ -21511,7 +21772,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   await startServer();
 }
 export {
-  allTools,
   createMcpServer,
   handleToolCall,
   startServer,

@@ -11,6 +11,10 @@ import {
   issuesSearch,
   issuesTimeLogAdd,
   issuesUpdate,
+  issueNoteAdd,
+  issueNoteDelete,
+  issueNoteGet,
+  issueNotesList,
   langGet,
   projectsMe,
   timesheetReportQuery,
@@ -210,7 +214,7 @@ test('issuesCreate posts /issues', async () => {
       summary: 's',
       description: 'd',
       project_id: 50,
-      additional_fields: { category: { name: 'Bugs' } },
+      actual_effort: 10,
     });
 
     assert.equal(calledUrl, 'https://mantis.example.com/api/rest/index.php/issues');
@@ -218,8 +222,113 @@ test('issuesCreate posts /issues', async () => {
 
     const body = JSON.parse(calledInit.body);
     assert.equal(body.project.id, 50);
-    assert.equal(body.category.name, 'Bugs');
+    assert.equal(body.category.name, 'Tasks');
+    assert.equal(body.estimated_effort, 4);
+
+    const customFields = body.custom_fields;
+    assert.ok(Array.isArray(customFields));
+    assert.deepEqual(customFields.find((cf) => cf.id === 1), { id: 1, value: 10 });
+    assert.deepEqual(customFields.find((cf) => cf.id === 3), { id: 3, value: 4 });
+    assert.deepEqual(customFields.find((cf) => cf.id === 4), { id: 4, value: body.expected_complete_date });
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const expectedDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(
+      tomorrow.getDate()
+    ).padStart(2, '0')}`;
+
+    assert.equal(body.expected_complete_date, expectedDate);
     assert.equal(result.status, 201);
+  } finally {
+    restore();
+  }
+});
+
+test('issueNoteAdd posts /issues/{id}/notes', async () => {
+  setEnv();
+  let calledUrl;
+  let calledInit;
+
+  const restore = mockFetch(async (url, init) => {
+    calledUrl = url;
+    calledInit = init;
+    return jsonResponse({ note: { id: 777 } }, 201, 'Created');
+  });
+
+  try {
+    const result = await issueNoteAdd({
+      issue_id: 123,
+      payload: { text: 'New note', view_state: { name: 'private' } },
+    });
+
+    assert.equal(calledUrl, 'https://mantis.example.com/api/rest/index.php/issues/123/notes');
+    assert.equal(calledInit.method, 'POST');
+
+    const body = JSON.parse(calledInit.body);
+    assert.equal(body.text, 'New note');
+    assert.equal(body.view_state.name, 'private');
+    assert.equal(result.status, 201);
+  } finally {
+    restore();
+  }
+});
+
+test('issueNoteDelete calls DELETE /issues/{id}/notes/{note_id}', async () => {
+  setEnv();
+  let calledUrl;
+  let calledInit;
+
+  const restore = mockFetch(async (url, init) => {
+    calledUrl = url;
+    calledInit = init;
+    return jsonResponse({}, 200, 'OK');
+  });
+
+  try {
+    const result = await issueNoteDelete({ issue_id: 123, note_id: 456 });
+
+    assert.equal(calledUrl, 'https://mantis.example.com/api/rest/index.php/issues/123/notes/456');
+    assert.equal(calledInit.method, 'DELETE');
+    assert.equal(result.status, 200);
+  } finally {
+    restore();
+  }
+});
+
+test('issueNoteGet returns note from issue response', async () => {
+  setEnv();
+  let calledUrl;
+
+  const restore = mockFetch(async (url, init) => {
+    calledUrl = url;
+    return jsonResponse({ issues: [{ id: 123, notes: [{ id: 456, text: 'ok' }] }] });
+  });
+
+  try {
+    const result = await issueNoteGet({ issue_id: 123, note_id: 456 });
+
+    assert.equal(calledUrl, 'https://mantis.example.com/api/rest/index.php/issues?id=123');
+    assert.equal(result.note.id, 456);
+    assert.equal(result.note.text, 'ok');
+  } finally {
+    restore();
+  }
+});
+
+test('issueNotesList returns notes list from issue response', async () => {
+  setEnv();
+  let calledUrl;
+
+  const restore = mockFetch(async (url, init) => {
+    calledUrl = url;
+    return jsonResponse({ issues: [{ id: 123, notes: [{ id: 456, text: 'ok' }, { id: 457, text: 'hi' }] }] });
+  });
+
+  try {
+    const result = await issueNotesList({ issue_id: 123 });
+
+    assert.equal(calledUrl, 'https://mantis.example.com/api/rest/index.php/issues?id=123');
+    assert.deepEqual(result.notes, [{ id: 456, text: 'ok' }, { id: 457, text: 'hi' }]);
   } finally {
     restore();
   }

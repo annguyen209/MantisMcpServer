@@ -30,6 +30,10 @@ function createDeps() {
     issuesCreate: async (payload) => ({ endpoint: 'issues_create', payload }),
     issuesUpdate: async (payload) => ({ endpoint: 'issues_update', payload }),
     issuesDelete: async (id) => ({ endpoint: 'issues_delete', id }),
+    issueNoteAdd: async (payload) => ({ endpoint: 'issue_note_add', payload }),
+    issueNoteDelete: async (payload) => ({ endpoint: 'issue_note_delete', payload }),
+    issueNoteGet: async (payload) => ({ endpoint: 'issue_note_get', payload }),
+    issueNotesList: async (payload) => ({ endpoint: 'issue_notes_list', payload }),
     configGet: async (payload) => ({ endpoint: 'config_get', payload }),
     langGet: async (strings) => ({ endpoint: 'lang_get', strings }),
   };
@@ -40,6 +44,10 @@ test('tools list includes every MCP endpoint', () => {
   assert.deepEqual(names, [
     'mantis_config_get',
     'mantis_health_check',
+    'mantis_issue_note_add',
+    'mantis_issue_note_delete',
+    'mantis_issue_note_get',
+    'mantis_issue_notes_list',
     'mantis_issues_assigned_to_me',
     'mantis_issues_create',
     'mantis_issues_delete',
@@ -227,8 +235,80 @@ test('mantis_issues_create routes payload arguments', async () => {
 
   const result = await handleToolCall(makeRequest('mantis_issues_create', args), createDeps());
   assert.equal(result.isError, false);
+  const expectedArgs = {
+    ...args,
+    additional_fields: {
+      category: { name: 'Bugs' },
+      estimated_effort: 4,
+      expected_complete_date: (() => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(
+          tomorrow.getDate()
+        ).padStart(2, '0')}`;
+      })(),
+      custom_fields: [
+        { id: 3, value: 4 },
+        { id: 4, value: (() => {
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(
+            tomorrow.getDate()
+          ).padStart(2, '0')}`;
+        })() },
+      ],
+    },
+  };
+
   assert.deepEqual(parseTextResult(result), {
     endpoint: 'issues_create',
+    payload: expectedArgs,
+  });
+});
+
+test('mantis_issue_notes_list routes args', async () => {
+  const args = { issue_id: 123 };
+
+  const result = await handleToolCall(makeRequest('mantis_issue_notes_list', args), createDeps());
+  assert.equal(result.isError, false);
+  assert.deepEqual(parseTextResult(result), {
+    endpoint: 'issue_notes_list',
+    payload: args,
+  });
+});
+
+test('mantis_issue_note_add routes payload arguments', async () => {
+  const args = {
+    issue_id: 123,
+    payload: { text: 'A note', view_state: { name: 'private' } },
+  };
+
+  const result = await handleToolCall(makeRequest('mantis_issue_note_add', args), createDeps());
+  assert.equal(result.isError, false);
+  assert.deepEqual(parseTextResult(result), {
+    endpoint: 'issue_note_add',
+    payload: args,
+  });
+});
+
+test('mantis_issue_note_delete routes args', async () => {
+  const args = { issue_id: 123, note_id: 456 };
+
+  const result = await handleToolCall(makeRequest('mantis_issue_note_delete', args), createDeps());
+  assert.equal(result.isError, false);
+  assert.deepEqual(parseTextResult(result), {
+    endpoint: 'issue_note_delete',
+    payload: args,
+  });
+});
+
+test('mantis_issue_note_get routes args', async () => {
+  const args = { issue_id: 123, note_id: 456 };
+
+  const result = await handleToolCall(makeRequest('mantis_issue_note_get', args), createDeps());
+  assert.equal(result.isError, false);
+  assert.deepEqual(parseTextResult(result), {
+    endpoint: 'issue_note_get',
     payload: args,
   });
 });

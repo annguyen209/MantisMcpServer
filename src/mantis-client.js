@@ -1,5 +1,17 @@
 import { getConfig } from './config.js';
 
+const CUSTOM_FIELD_ID_BY_NAME = {
+  actual_effort: 1,
+  components: 2,
+  estimated_effort: 3,
+  expected_complete_date: 4,
+  milestone: 5,
+  release_sprint: 6,
+  actual_status: 7,
+  percent_completed: 8,
+  work_remaining: 9,
+};
+
 function buildQuery(params = {}) {
   const query = new URLSearchParams();
 
@@ -205,12 +217,88 @@ export async function timesheetReportQuery({
   });
 }
 
-export async function issuesCreate({ summary, description, project_id, additional_fields }) {
+function getTomorrowDateString() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const yyyy = tomorrow.getFullYear();
+  const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+  const dd = String(tomorrow.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export async function issuesCreate({
+  summary,
+  description,
+  project_id,
+  additional_fields,
+  category,
+  actual_effort,
+  estimated_effort,
+  expected_complete_date,
+}) {
+  // Capture the raw args so we can map known field keys to custom_fields
+  const args = {
+    summary,
+    description,
+    project_id,
+    additional_fields,
+    category,
+    actual_effort,
+    estimated_effort,
+    expected_complete_date,
+  };
+
+  const fields = {
+    ...(additional_fields || {}),
+  };
+
+  // Defaults
+  if (category === undefined && fields.category === undefined) {
+    category = 'Tasks';
+  }
+  if (estimated_effort === undefined && fields.estimated_effort === undefined) {
+    estimated_effort = 4;
+  }
+  if (expected_complete_date === undefined && fields.expected_complete_date === undefined) {
+    expected_complete_date = getTomorrowDateString();
+  }
+
+  if (category !== undefined && fields.category === undefined) {
+    fields.category = typeof category === 'string' ? { name: category } : category;
+  }
+
+  if (actual_effort !== undefined && fields.actual_effort === undefined) {
+    fields.actual_effort = actual_effort;
+  }
+
+  if (estimated_effort !== undefined && fields.estimated_effort === undefined) {
+    fields.estimated_effort = estimated_effort;
+  }
+
+  if (expected_complete_date !== undefined && fields.expected_complete_date === undefined) {
+    fields.expected_complete_date = expected_complete_date;
+  }
+
+  // Map known custom field names to the custom_fields array (Mantis REST requires IDs)
+  fields.custom_fields = Array.isArray(fields.custom_fields) ? [...fields.custom_fields] : [];
+  for (const [fieldName, fieldId] of Object.entries(CUSTOM_FIELD_ID_BY_NAME)) {
+    const value =
+      (fieldName in args ? args[fieldName] : undefined) ??
+      fields[fieldName];
+
+    if (value === undefined) continue;
+
+    const exists = fields.custom_fields.some((cf) => cf.id === fieldId);
+    if (!exists) {
+      fields.custom_fields.push({ id: fieldId, value });
+    }
+  }
+
   const body = {
     summary,
     description,
     project: { id: project_id },
-    ...(additional_fields || {}),
+    ...fields,
   };
 
   return request('/issues', { method: 'POST', body });
@@ -224,6 +312,29 @@ export async function issuesUpdate({ id, summary, description, additional_fields
   };
 
   return request(`/issues/${id}`, { method: 'PATCH', body });
+}
+
+export async function issueNoteAdd({ issue_id, payload }) {
+  return request(`/issues/${issue_id}/notes`, { method: 'POST', body: payload });
+}
+
+export async function issueNoteDelete({ issue_id, note_id }) {
+  return request(`/issues/${issue_id}/notes/${note_id}`, { method: 'DELETE' });
+}
+
+export async function issueNoteGet({ issue_id, note_id }) {
+  const issue = await issuesGet(issue_id);
+  const note = issue?.data?.issues?.[0]?.notes?.find((n) => n.id === note_id);
+  return {
+    ...issue,
+    note,
+  };
+}
+
+export async function issueNotesList({ issue_id }) {
+  const issue = await issuesGet(issue_id);
+  const notes = issue?.data?.issues?.[0]?.notes || [];
+  return { ...issue, notes };
 }
 
 export async function issuesDelete(id) {
