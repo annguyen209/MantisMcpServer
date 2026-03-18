@@ -20861,17 +20861,23 @@ function getConfig() {
 }
 
 // src/mantis-client.js
-var CUSTOM_FIELD_ID_BY_NAME = {
-  actual_effort: 1,
-  components: 2,
-  estimated_effort: 3,
-  expected_complete_date: 4,
-  milestone: 5,
-  release_sprint: 6,
-  actual_status: 7,
-  percent_completed: 8,
-  work_remaining: 9
+var CUSTOM_FIELD_NAME_BY_KEY = {
+  actual_effort: "Actual Effort",
+  estimated_effort: "Estimated Effort",
+  expected_complete_date: "Expected Complete Date"
 };
+var projectCache = /* @__PURE__ */ new Map();
+async function getProjectById(project_id) {
+  if (!project_id) return null;
+  if (projectCache.has(project_id)) {
+    return projectCache.get(project_id);
+  }
+  const resp = await request("/projects", { query: { id: project_id } });
+  const projects = Array.isArray(resp.data) ? resp.data : Array.isArray(resp.data?.projects) ? resp.data.projects : [];
+  const project = projects.find((p) => p.id === project_id) ?? projects[0] ?? null;
+  projectCache.set(project_id, project);
+  return project;
+}
 function buildQuery(params = {}) {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -20950,8 +20956,21 @@ async function requestWeb(pluginPage, { method = "GET", query, body } = {}) {
 async function usersMe() {
   return request("/users/me");
 }
-async function projectsMe() {
-  return request("/projects");
+async function projectCategories(project_id) {
+  const project = await getProjectById(project_id);
+  return {
+    status: project ? 200 : 404,
+    data: project ? project.categories || [] : null,
+    url: `${project_id ? `/projects?id=${project_id}` : "/projects"}`
+  };
+}
+async function projectCustomFields(project_id) {
+  const project = await getProjectById(project_id);
+  return {
+    status: project ? 200 : 404,
+    data: project ? project.custom_fields || [] : null,
+    url: `${project_id ? `/projects?id=${project_id}` : "/projects"}`
+  };
 }
 async function healthCheck() {
   const cfg = getConfig();
@@ -21089,6 +21108,15 @@ async function issuesCreate({
   if (category !== void 0 && fields.category === void 0) {
     fields.category = typeof category === "string" ? { name: category } : category;
   }
+  const project = await getProjectById(project_id);
+  if (project && project.categories && typeof fields.category === "object" && fields.category?.name) {
+    const match = project.categories.find(
+      (c) => String(c.name).toLowerCase() === String(fields.category.name).toLowerCase()
+    );
+    if (match) {
+      fields.category = { id: match.id };
+    }
+  }
   if (actual_effort !== void 0 && fields.actual_effort === void 0) {
     fields.actual_effort = actual_effort;
   }
@@ -21099,9 +21127,22 @@ async function issuesCreate({
     fields.expected_complete_date = expected_complete_date;
   }
   fields.custom_fields = Array.isArray(fields.custom_fields) ? [...fields.custom_fields] : [];
-  for (const [fieldName, fieldId] of Object.entries(CUSTOM_FIELD_ID_BY_NAME)) {
+  const customFieldNameToId = /* @__PURE__ */ new Map();
+  if (project && Array.isArray(project.custom_fields)) {
+    for (const cf of project.custom_fields) {
+      if (cf?.name && cf?.id !== void 0) {
+        customFieldNameToId.set(String(cf.name).toLowerCase(), cf.id);
+      }
+    }
+  }
+  for (const fieldName of Object.keys(CUSTOM_FIELD_NAME_BY_KEY)) {
     const value = (fieldName in args ? args[fieldName] : void 0) ?? fields[fieldName];
     if (value === void 0) continue;
+    const expectedFieldName = CUSTOM_FIELD_NAME_BY_KEY[fieldName];
+    const fieldId = customFieldNameToId.get(fieldName) || customFieldNameToId.get(String(expectedFieldName).toLowerCase());
+    if (!fieldId) {
+      continue;
+    }
     const exists = fields.custom_fields.some((cf) => cf.id === fieldId);
     if (!exists) {
       fields.custom_fields.push({ id: fieldId, value });
@@ -21245,23 +21286,15 @@ function getTomorrowDateString2() {
   const dd = String(tomorrow.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
 }
-var CUSTOM_FIELD_ID_BY_NAME2 = {
-  actual_effort: 1,
-  components: 2,
-  estimated_effort: 3,
-  expected_complete_date: 4,
-  milestone: 5,
-  release_sprint: 6,
-  actual_status: 7,
-  percent_completed: 8,
-  work_remaining: 9
-};
 function normalizeIssueCreateArgs(args = {}) {
   const additionalFields = {
     ...args.additional_fields || {}
   };
   if (args.category === void 0 && additionalFields.category === void 0) {
     additionalFields.category = "Tasks";
+  }
+  if (args.actual_effort === void 0 && additionalFields.actual_effort === void 0) {
+    additionalFields.actual_effort = 4;
   }
   if (args.estimated_effort === void 0 && additionalFields.estimated_effort === void 0) {
     additionalFields.estimated_effort = 4;
@@ -21285,14 +21318,6 @@ function normalizeIssueCreateArgs(args = {}) {
     additionalFields.category = { name: additionalFields.category };
   }
   additionalFields.custom_fields = Array.isArray(additionalFields.custom_fields) ? [...additionalFields.custom_fields] : [];
-  for (const [fieldName, fieldId] of Object.entries(CUSTOM_FIELD_ID_BY_NAME2)) {
-    const value = args[fieldName] !== void 0 ? args[fieldName] : additionalFields[fieldName];
-    if (value === void 0) continue;
-    const exists = additionalFields.custom_fields.some((cf) => cf.id === fieldId);
-    if (!exists) {
-      additionalFields.custom_fields.push({ id: fieldId, value });
-    }
-  }
   return {
     ...args,
     additional_fields: additionalFields
@@ -21346,6 +21371,30 @@ var allTools = [
     name: "mantis_projects_me",
     description: "List projects accessible to the currently authenticated user.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "mantis_project_categories",
+    description: "List categories for a project.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "integer", description: "Project id" }
+      },
+      required: ["project_id"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "mantis_project_custom_fields",
+    description: "List custom fields for a project.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "integer", description: "Project id" }
+      },
+      required: ["project_id"],
+      additionalProperties: false
+    }
   },
   {
     name: "mantis_health_check",
@@ -21436,7 +21485,7 @@ var allTools = [
         summary: { type: "string" },
         description: { type: "string" },
         project_id: { type: "integer" },
-        category: { type: "string", description: "Issue category (e.g. Tasks)." },
+        category: { type: "string", description: "Issue category (e.g. Tasks, Bugs, New Features, Performance, Warranty)." },
         actual_effort: {
           type: ["number", "string"],
           description: "Actual effort spent (custom field)."
@@ -21603,7 +21652,8 @@ var defaultDeps = {
   issueNoteGet,
   issueNotesList,
   langGet,
-  projectsMe,
+  projectCategories,
+  projectCustomFields,
   timesheetReportQuery,
   usersMe
 };
@@ -21624,6 +21674,10 @@ async function handleToolCall(request2, contextOrDeps, injectedDeps) {
         return toTextResult(await deps.usersMe());
       case "mantis_projects_me":
         return toTextResult(await deps.projectsMe());
+      case "mantis_project_categories":
+        return toTextResult(await deps.projectCategories(args.project_id));
+      case "mantis_project_custom_fields":
+        return toTextResult(await deps.projectCustomFields(args.project_id));
       case "mantis_health_check":
         return toTextResult(await deps.healthCheck());
       case "mantis_issues_get":
@@ -21676,6 +21730,10 @@ async function handleToolCall(request2, contextOrDeps, injectedDeps) {
             summary: normalized.summary,
             description: normalized.description,
             project_id: normalized.project_id,
+            category: normalized.category,
+            actual_effort: normalized.actual_effort,
+            estimated_effort: normalized.estimated_effort,
+            expected_complete_date: normalized.expected_complete_date,
             additional_fields: normalized.additional_fields
           })
         );
