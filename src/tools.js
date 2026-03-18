@@ -500,6 +500,7 @@ const defaultDeps = {
   projectCustomFields,
   timesheetReportQuery,
   usersMe,
+  projectsMe,
 };
 
 function isDependencyBag(value) {
