@@ -43,6 +43,7 @@
     "start:src": "node src/server.js",
     "test": "node --test"
   },
+  "readme": "README.npm.md",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.1",
     "dotenv": "^16.4.5"
