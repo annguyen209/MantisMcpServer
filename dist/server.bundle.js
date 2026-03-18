@@ -20956,6 +20956,9 @@ async function requestWeb(pluginPage, { method = "GET", query, body } = {}) {
 async function usersMe() {
   return request("/users/me");
 }
+async function projectsMe() {
+  return request("/projects");
+}
 async function projectCategories(project_id) {
   const project = await getProjectById(project_id);
   return {
@@ -21662,7 +21665,8 @@ var defaultDeps = {
   projectCategories,
   projectCustomFields,
   timesheetReportQuery,
-  usersMe
+  usersMe,
+  projectsMe
 };
 function isDependencyBag(value) {
   return Boolean(
