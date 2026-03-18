@@ -1,6 +1,6 @@
 {
   "name": "@annguyen209/mantis-mcp-server",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Standalone MCP server for MantisBT REST API endpoints",
   "license": "UNLICENSED",
   "type": "module",
@@ -43,7 +43,6 @@
     "start:src": "node src/server.js",
     "test": "node --test"
   },
-  "readme": "README.npm.md",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.1",
     "dotenv": "^16.4.5"
