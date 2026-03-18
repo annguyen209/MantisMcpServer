@@ -1,16 +1,33 @@
 import { getConfig } from './config.js';
 
-const CUSTOM_FIELD_ID_BY_NAME = {
-  actual_effort: 1,
-  components: 2,
-  estimated_effort: 3,
-  expected_complete_date: 4,
-  milestone: 5,
-  release_sprint: 6,
-  actual_status: 7,
-  percent_completed: 8,
-  work_remaining: 9,
+// Mapping of common client field keys to the user-visible custom field names stored in Mantis.
+// This is used to map `actual_effort` / `estimated_effort` / `expected_complete_date` etc.
+// to the concrete custom field name returned in the project metadata.
+const CUSTOM_FIELD_NAME_BY_KEY = {
+  actual_effort: 'Actual Effort',
+  estimated_effort: 'Estimated Effort',
+  expected_complete_date: 'Expected Complete Date',
 };
+
+const projectCache = new Map();
+
+export async function getProjectById(project_id) {
+  if (!project_id) return null;
+  if (projectCache.has(project_id)) {
+    return projectCache.get(project_id);
+  }
+
+  const resp = await request('/projects', { query: { id: project_id } });
+  const projects = Array.isArray(resp.data)
+    ? resp.data
+    : Array.isArray(resp.data?.projects)
+    ? resp.data.projects
+    : [];
+
+  const project = projects.find((p) => p.id === project_id) ?? projects[0] ?? null;
+  projectCache.set(project_id, project);
+  return project;
+}
 
 function buildQuery(params = {}) {
   const query = new URLSearchParams();
@@ -111,6 +128,26 @@ export async function usersMe() {
 
 export async function projectsMe() {
   return request('/projects');
+}
+
+export async function projectCategories(project_id) {
+  // Project metadata includes categories; the API does not provide a dedicated endpoint.
+  const project = await getProjectById(project_id);
+  return {
+    status: project ? 200 : 404,
+    data: project ? project.categories || [] : null,
+    url: `${project_id ? `/projects?id=${project_id}` : '/projects'}`,
+  };
+}
+
+export async function projectCustomFields(project_id) {
+  // Project metadata includes custom fields; the API does not provide a dedicated endpoint.
+  const project = await getProjectById(project_id);
+  return {
+    status: project ? 200 : 404,
+    data: project ? project.custom_fields || [] : null,
+    url: `${project_id ? `/projects?id=${project_id}` : '/projects'}`,
+  };
 }
 
 export async function healthCheck() {
@@ -267,6 +304,17 @@ export async function issuesCreate({
     fields.category = typeof category === 'string' ? { name: category } : category;
   }
 
+  // Resolve category names to IDs using project metadata when available.
+  const project = await getProjectById(project_id);
+  if (project && project.categories && typeof fields.category === 'object' && fields.category?.name) {
+    const match = project.categories.find(
+      (c) => String(c.name).toLowerCase() === String(fields.category.name).toLowerCase()
+    );
+    if (match) {
+      fields.category = { id: match.id };
+    }
+  }
+
   if (actual_effort !== undefined && fields.actual_effort === undefined) {
     fields.actual_effort = actual_effort;
   }
@@ -281,12 +329,32 @@ export async function issuesCreate({
 
   // Map known custom field names to the custom_fields array (Mantis REST requires IDs)
   fields.custom_fields = Array.isArray(fields.custom_fields) ? [...fields.custom_fields] : [];
-  for (const [fieldName, fieldId] of Object.entries(CUSTOM_FIELD_ID_BY_NAME)) {
+
+  // Use project metadata to map custom field names to IDs when possible.
+  const customFieldNameToId = new Map();
+  if (project && Array.isArray(project.custom_fields)) {
+    for (const cf of project.custom_fields) {
+      if (cf?.name && cf?.id !== undefined) {
+        customFieldNameToId.set(String(cf.name).toLowerCase(), cf.id);
+      }
+    }
+  }
+
+  for (const fieldName of Object.keys(CUSTOM_FIELD_NAME_BY_KEY)) {
     const value =
       (fieldName in args ? args[fieldName] : undefined) ??
       fields[fieldName];
 
     if (value === undefined) continue;
+
+    const expectedFieldName = CUSTOM_FIELD_NAME_BY_KEY[fieldName];
+    const fieldId =
+      customFieldNameToId.get(fieldName) ||
+      customFieldNameToId.get(String(expectedFieldName).toLowerCase());
+
+    if (!fieldId) {
+      continue;
+    }
 
     const exists = fields.custom_fields.some((cf) => cf.id === fieldId);
     if (!exists) {

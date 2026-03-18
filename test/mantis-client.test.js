@@ -206,6 +206,23 @@ test('issuesCreate posts /issues', async () => {
   const restore = mockFetch(async (url, init) => {
     calledUrl = url;
     calledInit = init;
+
+    if (String(url).includes('/projects')) {
+      return jsonResponse({
+        projects: [
+          {
+            id: 50,
+            categories: [{ id: 5, name: 'Tasks' }],
+            custom_fields: [
+              { id: 1, name: 'Actual Effort' },
+              { id: 3, name: 'Estimated Effort' },
+              { id: 4, name: 'Expected Complete Date' },
+            ],
+          },
+        ],
+      });
+    }
+
     return jsonResponse({ issue: { id: 999 } }, 201, 'Created');
   });
 
@@ -222,7 +239,7 @@ test('issuesCreate posts /issues', async () => {
 
     const body = JSON.parse(calledInit.body);
     assert.equal(body.project.id, 50);
-    assert.equal(body.category.name, 'Tasks');
+    assert.equal(body.category.id, 5);
     assert.equal(body.estimated_effort, 4);
 
     const customFields = body.custom_fields;

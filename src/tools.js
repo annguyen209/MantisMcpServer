@@ -15,6 +15,8 @@ import {
   issueNotesList,
   langGet,
   projectsMe,
+  projectCategories,
+  projectCustomFields,
   timesheetReportQuery,
   usersMe,
 } from './mantis-client.js';
@@ -119,17 +121,8 @@ function getTomorrowDateString() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-const CUSTOM_FIELD_ID_BY_NAME = {
-  actual_effort: 1,
-  components: 2,
-  estimated_effort: 3,
-  expected_complete_date: 4,
-  milestone: 5,
-  release_sprint: 6,
-  actual_status: 7,
-  percent_completed: 8,
-  work_remaining: 9,
-};
+// NOTE: We no longer rely on hard-coded custom field ID mappings.
+// The underlying client will fetch project metadata and resolve IDs dynamically.
 
 function normalizeIssueCreateArgs(args = {}) {
   const additionalFields = {
@@ -139,6 +132,10 @@ function normalizeIssueCreateArgs(args = {}) {
   // Defaults when not provided
   if (args.category === undefined && additionalFields.category === undefined) {
     additionalFields.category = 'Tasks';
+  }
+
+  if (args.actual_effort === undefined && additionalFields.actual_effort === undefined) {
+    additionalFields.actual_effort = 4;
   }
 
   if (args.estimated_effort === undefined && additionalFields.estimated_effort === undefined) {
@@ -169,20 +166,11 @@ function normalizeIssueCreateArgs(args = {}) {
     additionalFields.category = { name: additionalFields.category };
   }
 
-  // Map known custom field names to custom_fields entries (Mantis REST requires ids)
+  // Do not attempt to resolve custom field IDs here; the client will resolve them
+  // using project metadata (custom_fields array) when creating an issue.
   additionalFields.custom_fields = Array.isArray(additionalFields.custom_fields)
     ? [...additionalFields.custom_fields]
     : [];
-
-  for (const [fieldName, fieldId] of Object.entries(CUSTOM_FIELD_ID_BY_NAME)) {
-    const value = args[fieldName] !== undefined ? args[fieldName] : additionalFields[fieldName];
-    if (value === undefined) continue;
-
-    const exists = additionalFields.custom_fields.some((cf) => cf.id === fieldId);
-    if (!exists) {
-      additionalFields.custom_fields.push({ id: fieldId, value });
-    }
-  }
 
   return {
     ...args,
@@ -239,6 +227,30 @@ export const allTools = [
     name: 'mantis_projects_me',
     description: 'List projects accessible to the currently authenticated user.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'mantis_project_categories',
+    description: 'List categories for a project.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project_id: { type: 'integer', description: 'Project id' },
+      },
+      required: ['project_id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'mantis_project_custom_fields',
+    description: 'List custom fields for a project.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project_id: { type: 'integer', description: 'Project id' },
+      },
+      required: ['project_id'],
+      additionalProperties: false,
+    },
   },
   {
     name: 'mantis_health_check',
@@ -329,7 +341,7 @@ export const allTools = [
         summary: { type: 'string' },
         description: { type: 'string' },
         project_id: { type: 'integer' },
-        category: { type: 'string', description: 'Issue category (e.g. Tasks).' },
+        category: { type: 'string', description: 'Issue category (e.g. Tasks, Bugs, New Features, Performance, Warranty).' },
         actual_effort: {
           type: ['number', 'string'],
           description: 'Actual effort spent (custom field).',
@@ -498,7 +510,8 @@ const defaultDeps = {
   issueNoteGet,
   issueNotesList,
   langGet,
-  projectsMe,
+  projectCategories,
+  projectCustomFields,
   timesheetReportQuery,
   usersMe,
 };
@@ -528,8 +541,14 @@ export async function handleToolCall(request, contextOrDeps, injectedDeps) {
       case 'mantis_users_me':
         return toTextResult(await deps.usersMe());
 
-      case 'mantis_projects_me':
+          case 'mantis_projects_me':
         return toTextResult(await deps.projectsMe());
+
+      case 'mantis_project_categories':
+        return toTextResult(await deps.projectCategories(args.project_id));
+
+      case 'mantis_project_custom_fields':
+        return toTextResult(await deps.projectCustomFields(args.project_id));
 
       case 'mantis_health_check':
         return toTextResult(await deps.healthCheck());
@@ -590,6 +609,10 @@ export async function handleToolCall(request, contextOrDeps, injectedDeps) {
             summary: normalized.summary,
             description: normalized.description,
             project_id: normalized.project_id,
+            category: normalized.category,
+            actual_effort: normalized.actual_effort,
+            estimated_effort: normalized.estimated_effort,
+            expected_complete_date: normalized.expected_complete_date,
             additional_fields: normalized.additional_fields,
           })
         );

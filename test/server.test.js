@@ -21,6 +21,8 @@ function createDeps() {
   return {
     usersMe: async () => ({ endpoint: 'users/me' }),
     projectsMe: async () => ({ endpoint: 'projects' }),
+    projectCategories: async (project_id) => ({ endpoint: 'project_categories', project_id }),
+    projectCustomFields: async (project_id) => ({ endpoint: 'project_custom_fields', project_id }),
     healthCheck: async () => ({ endpoint: 'health' }),
     issuesGet: async (id) => ({ endpoint: 'issues_get', id }),
     issuesSearch: async (filters) => ({ endpoint: 'issues_search', filters }),
@@ -56,6 +58,8 @@ test('tools list includes every MCP endpoint', () => {
     'mantis_issues_timesheet_crud',
     'mantis_issues_update',
     'mantis_lang_get',
+    'mantis_project_categories',
+    'mantis_project_custom_fields',
     'mantis_projects_me',
     'mantis_timesheet_report_query',
     'mantis_users_me',
@@ -72,6 +76,18 @@ test('mantis_projects_me routes correctly', async () => {
   const result = await handleToolCall(makeRequest('mantis_projects_me'), createDeps());
   assert.equal(result.isError, false);
   assert.deepEqual(parseTextResult(result), { endpoint: 'projects' });
+});
+
+test('mantis_project_categories routes project_id', async () => {
+  const result = await handleToolCall(makeRequest('mantis_project_categories', { project_id: 42 }), createDeps());
+  assert.equal(result.isError, false);
+  assert.deepEqual(parseTextResult(result), { endpoint: 'project_categories', project_id: 42 });
+});
+
+test('mantis_project_custom_fields routes project_id', async () => {
+  const result = await handleToolCall(makeRequest('mantis_project_custom_fields', { project_id: 42 }), createDeps());
+  assert.equal(result.isError, false);
+  assert.deepEqual(parseTextResult(result), { endpoint: 'project_custom_fields', project_id: 42 });
 });
 
 test('mantis_projects_me ignores MCP runtime context object and uses default deps shape detection', async () => {
@@ -230,7 +246,8 @@ test('mantis_issues_create routes payload arguments', async () => {
     summary: 'Bug',
     description: 'Detail',
     project_id: 50,
-    additional_fields: { category: { name: 'Bugs' } },
+    category: 'Bugs',
+    actual_effort: 0,
   };
 
   const result = await handleToolCall(makeRequest('mantis_issues_create', args), createDeps());
@@ -239,6 +256,7 @@ test('mantis_issues_create routes payload arguments', async () => {
     ...args,
     additional_fields: {
       category: { name: 'Bugs' },
+      actual_effort: 0,
       estimated_effort: 4,
       expected_complete_date: (() => {
         const tomorrow = new Date();
@@ -247,16 +265,7 @@ test('mantis_issues_create routes payload arguments', async () => {
           tomorrow.getDate()
         ).padStart(2, '0')}`;
       })(),
-      custom_fields: [
-        { id: 3, value: 4 },
-        { id: 4, value: (() => {
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(
-            tomorrow.getDate()
-          ).padStart(2, '0')}`;
-        })() },
-      ],
+      custom_fields: [],
     },
   };
 
