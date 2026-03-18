@@ -30,6 +30,24 @@ export MANTIS_USE_INDEX_PHP=true
 export MANTIS_API_TOKEN=YOUR_REAL_TOKEN_HERE
 ```
 
+### Example VS Code MCP configuration
+
+```json
+{
+  "mcpServers": {
+    "mantis-rest": {
+      "command": "npx",
+      "args": ["-y", "@annguyen209/mantis-mcp-server@latest"],
+      "env": {
+        "MANTIS_BASE_URL": "https://mantis.example.com/api/rest",
+        "MANTIS_USE_INDEX_PHP": "true",
+        "MANTIS_API_TOKEN": "YOUR_REAL_TOKEN_HERE"
+      }
+    }
+  }
+}
+```
+
 ## Running
 
 ```bash
