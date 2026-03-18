@@ -54,9 +54,6 @@ export MANTIS_API_TOKEN=YOUR_REAL_TOKEN_HERE
 mantis-mcp-server
 ```
 
-The server then speaks MCP over stdio and exposes Mantis REST endpoints via tools (see docs).
+The server speaks MCP over stdio and exposes Mantis REST endpoints via tools.
 
-## Notes
-
-- This package is designed for use with MCP clients (e.g., VS Code + Model Context Protocol).
-- For full developer documentation and local development setup, see the repository README (`README.md`).
+For full developer documentation and local development setup, see the repository README (`README.md`).
